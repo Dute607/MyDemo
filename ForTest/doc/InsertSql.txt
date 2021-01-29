@@ -1,0 +1,130 @@
+package com.kerong.jdbctest.demo;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class InsertSql {
+    public static void main(String[] args) throws IOException {
+        //表名
+        String tName = "ORG_INFO";
+        // 输出文件的路径
+        String path = "D:\\Files\\" + tName + ".txt";
+
+        // list每个元素为一行数据，String数组每个元素为一个字段数据
+        List<String[]> data = new ArrayList<>();
+
+        //读取表数据，传入存储查询结果的list和表名tName,返回字段名的数组
+        String[] columns = getData(data,tName);
+        // 如果表不存在
+        if (data.size() == 0){
+            System.out.println("The table is not exist!");
+            System.exit(0);
+        }
+        //组装INSERT的sql语句
+        StringBuilder column = new StringBuilder();
+        for (int i = 0; i <= columns.length - 2; i++) {
+            column.append(columns[i]).append(",");
+        }
+        column.append(columns[columns.length - 1]);
+        String temp = "INSERT INTO " + tName + " (" + column + ")" + " VALUES (";
+
+        BufferedWriter bw = new BufferedWriter(new FileWriter(path));
+        for (String[] values:data) {
+            StringBuilder value = new StringBuilder();
+            for (int i = 0; i <= values.length - 2; i++) {
+                value.append(values[i]).append(",");
+            }
+            value.append(values[values.length - 1]).append(")");
+            String sql = temp + value;
+
+            // 将sql语句写入txt文件
+            bw.write(sql);
+            // 换行
+            bw.newLine();
+        }
+        bw.close();
+        System.out.println("Operation completed");
+    }
+
+    //读取表数据，传入存储查询结果的list和表名tName，返回字段名的数组
+    public static String[] getData(List<String[]> list,String tName){
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet resultSet = null;
+        ResultSetMetaData resultSetMetaData = null;
+        String[] strings = null;
+        String[] columns = null;
+        String[] columnsTypeName = null;
+
+        try {
+            connection = DriverManager.getConnection("jdbc:oracle:thin:@localhost:1521:orcl","scott","orcl");
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("select * from "+ tName);
+            resultSetMetaData = resultSet.getMetaData();
+
+            // 获取字段个数
+            int columnCount = resultSetMetaData.getColumnCount();
+            // 获取字段名
+            columns = new String[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                String columnName = resultSetMetaData.getColumnName(i + 1);
+                columns[i] = columnName;
+            }
+            // 获取字段数据类型
+            columnsTypeName = new String[columnCount];
+            for (int i = 0; i < columnCount; i++) {
+                String columnTypeName = resultSetMetaData.getColumnTypeName(i + 1);
+                columnsTypeName[i] = columnTypeName;
+            }
+
+            while(resultSet.next()){
+                strings = new String[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    Object object = resultSet.getObject(columns[i]);
+                    String result = String.valueOf(object);
+                    // 如果该字段是字符串且不为空则加上引号
+                    if (columnsTypeName[i].equals("VARCHAR2") && (!(result.equals("null")))){
+                        result = "'" + result + "'";
+                    }
+                    strings[i] = result;
+                }
+                list.add(strings);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            close(resultSet,statement,connection);
+            // 返回字段名的数组
+            return columns;
+        }
+    }
+
+    // 关闭资源
+    public static void close(ResultSet resultSet,Statement statement, Connection connection){
+        if (resultSet != null){
+            try {
+                resultSet.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        if(statement != null){
+            try {
+                statement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        if(connection != null){
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
